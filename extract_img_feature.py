@@ -9,9 +9,9 @@ import argparse
 import json
 
 def get_model(_img_type):
-    print(f"Loading Model")
-    cooelf_path = "/home/.cache/torch/hub/cooelf_detr_main"
-    _model = torch.hub.load(cooelf_path, 'detr_resnet101_dc5', pretrained=True, source='local')
+    print(f"Loading DETR Model from GitHub...")
+    # Using the official Facebook Research DETR repository
+    _model = torch.hub.load('facebookresearch/detr:main', 'detr_resnet101_dc5', pretrained=True)
     _transform = T.Compose([
         T.Resize(224),
         T.ToTensor(),
