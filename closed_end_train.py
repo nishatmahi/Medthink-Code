@@ -19,8 +19,7 @@ def train_loop(_args):
     datacollator = DataCollatorForSeq2Seq(tokenizer=tokenizer)
 
     save_dir = os.path.join(_args.output_dir, _args.method)
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
+    os.makedirs(save_dir, exist_ok=True)
 
     config = Seq2SeqTrainingArguments(
             output_dir=save_dir,
