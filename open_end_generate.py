@@ -1,11 +1,16 @@
 import os
-from dataset import OpenMedVQADataset
-from model import T5ForMultimodalGeneration
-from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
-import numpy as np
 import argparse
 import torch
 import json
+import numpy as np
+
+# Force single GPU to prevent DataParallel StopIteration issues
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+from dataset import OpenMedVQADataset
+from model import T5ForMultimodalGeneration
+from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 
 def eval_loop(_args):
     torch.manual_seed(_args.seed)  # pytorch random seed

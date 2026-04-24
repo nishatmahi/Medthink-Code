@@ -5,6 +5,11 @@ import re
 import os
 import numpy as np
 import torch
+
+# Force single GPU to prevent DataParallel StopIteration issues
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 from dataset import ClosedMedVQADataset
 from model import T5ForMultimodalGeneration
@@ -57,7 +62,7 @@ def train_loop(_args):
         return _answer
 
     def compute_metrics_rougel(eval_preds):
-        metric = evaluate.load("./rouge.py")
+        metric = evaluate.load("rouge")
         preds, targets = eval_preds
         if isinstance(preds, tuple):
             preds = preds[0]

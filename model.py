@@ -68,6 +68,14 @@ class JointEncoder(T5Stack):
         self.device_map = None
         self.gradient_checkpointing = False
 
+    @property
+    def dtype(self):
+        """Safe dtype property that won't raise StopIteration in DataParallel replicas."""
+        try:
+            return next(p.dtype for p in self.parameters() if p.is_floating_point())
+        except StopIteration:
+            return torch.float32
+
     def parallelize(self, device_map=None):
         warnings.warn(
             "`T5Stack.parallelize` is deprecated and will be removed in v5 of Transformers, you should load your model"
@@ -183,7 +191,9 @@ class JointEncoder(T5Stack):
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
-        extended_attention_mask = self.get_extended_attention_mask(attention_mask, input_shape)
+        extended_attention_mask = self.get_extended_attention_mask(
+            attention_mask, input_shape, device=inputs_embeds.device, dtype=inputs_embeds.dtype
+        )
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
@@ -493,16 +503,18 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
         )
 
     def prepare_inputs_for_generation(
-            self, decoder_input_ids, past=None, attention_mask=None, use_cache=None, encoder_outputs=None, **kwargs
+            self, decoder_input_ids, past_key_values=None, past=None, attention_mask=None, use_cache=None, encoder_outputs=None, **kwargs
     ):
+        # Support both 'past_key_values' (v5+) and 'past' (v4.x) argument names
+        _past = past_key_values if past_key_values is not None else past
         # cut decoder_input_ids if past is used
-        if past is not None:
+        if _past is not None:
             decoder_input_ids = decoder_input_ids[:, -1:]
 
         output = {
             "input_ids": None,  # encoder_outputs is defined. input_ids not needed
             "encoder_outputs": encoder_outputs,
-            "past_key_values": past,
+            "past_key_values": _past,
             "decoder_input_ids": decoder_input_ids,
             "attention_mask": attention_mask,
             "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)

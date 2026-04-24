@@ -2,6 +2,11 @@ import torch
 import argparse
 import os
 import numpy as np
+
+# Force single GPU to prevent DataParallel StopIteration issues
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 from model import T5ForMultimodalGeneration
 from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 from dataset import OpenMedVQADataset
