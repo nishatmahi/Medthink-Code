@@ -1,5 +1,6 @@
 from transformers import T5Config, T5ForConditionalGeneration
-from transformers.models.t5.modeling_t5 import T5Stack, __HEAD_MASK_WARNING_MSG, T5Block, T5LayerNorm
+from transformers.models.t5.modeling_t5 import T5Stack, T5Block, T5LayerNorm
+__HEAD_MASK_WARNING_MSG = "The head_mask argument is deprecated and will be removed in future versions."
 import copy
 from transformers.modeling_outputs import ModelOutput, BaseModelOutput, BaseModelOutputWithPast, \
     BaseModelOutputWithPastAndCrossAttentions, Seq2SeqLMOutput, Seq2SeqModelOutput
