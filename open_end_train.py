@@ -2,7 +2,7 @@ import torch
 import argparse
 import os
 import numpy as np
-from MyModel import T5ForMultimodalGeneration
+from model import T5ForMultimodalGeneration
 from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 from dataset import OpenMedVQADataset
 
@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument('--wd', type=float, default=1e-2, help='Weight Decay')
     parser.add_argument('--seed', type=int, default=42, help='Random Seed')
     parser.add_argument('--dataset', type=str, choices=['rad', 'slake'])
+    parser.add_argument('--rational', action='store_true', help='Use ROUGE metric if rational is present')
     args = parser.parse_args()
     for arg, value in vars(args).items():
         print(f"{arg}: {value}")

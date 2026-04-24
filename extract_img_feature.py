@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument("--image_dir", type=str)
     parser.add_argument("--output_dir", type=str)
     parser.add_argument("--dataset", type=str, choices=["rad", "slake"])
+    parser.add_argument("--img_type", type=str, default="detr")
     args = vars(parser.parse_args())
     for arg, value in args.items():
         print(f"{arg}: {value}")

@@ -71,7 +71,7 @@ def genimi_to_answer(_solution, _file_path, _image_dir, _output_path, _dataset_t
         while True:
             try:
                 genai.configure(api_key=gemini_api_key[get_headers()], transport='rest')
-                model = genai.GenerativeModel('gemini-pro-vision')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(
                     [image, instruction+context], stream=False,
                     safety_settings=[

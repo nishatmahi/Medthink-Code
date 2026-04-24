@@ -142,8 +142,8 @@ class OpenMedVQADataset(Dataset):
         self.problem_id = []
         self.img_index = []
         self.pretrained_feature = torch.load(_img_file_path)
-        self.source_len = source_len
-        self.target_len = target_len
+        self.source_len = _source_len
+        self.target_len = _target_len
 
         with open(_text_file_path, "r", encoding="utf-8") as TextFile:
             data = json.load(TextFile)

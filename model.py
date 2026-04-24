@@ -16,7 +16,29 @@ from transformers.modeling_outputs import (
     BaseModelOutput,
     Seq2SeqLMOutput,
 )
-from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
+try:
+    from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
+except ImportError:
+    # model_parallel_utils was removed in newer versions of transformers
+    def assert_device_map(device_map, num_blocks):
+        blocks = list(range(0, num_blocks))
+        device_map_blocks = [item for sublist in list(device_map.values()) for item in sublist]
+        duplicates = {x for x in device_map_blocks if device_map_blocks.count(x) > 1}
+        if len(duplicates) != 0:
+            raise ValueError(
+                f"Duplicate attention blocks specified in device_map: {duplicates}"
+            )
+        missing_blocks = set(blocks) - set(device_map_blocks)
+        if len(missing_blocks) != 0:
+            raise ValueError(
+                f"There are attention blocks for which the device was not specified in the device_map: {missing_blocks}"
+            )
+
+    def get_device_map(n_layers, devices):
+        layers = list(range(n_layers))
+        n_blocks = int(math.ceil(n_layers / len(devices)))
+        layers_list = [layers[i : i + n_blocks] for i in range(0, n_layers, n_blocks)]
+        return dict(zip(devices, layers_list))
 from torch.utils.checkpoint import checkpoint
 
 
