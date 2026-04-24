@@ -20,7 +20,7 @@ def train_loop(_args):
 
     config = Seq2SeqTrainingArguments(
             output_dir=save_dir,
-            evaluation_strategy="no",
+            eval_strategy="no",
             logging_strategy="epoch",
             save_strategy="no",
             save_total_limit=1,
