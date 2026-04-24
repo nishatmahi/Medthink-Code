@@ -45,8 +45,7 @@ from torch.utils.checkpoint import checkpoint
 class JointEncoder(T5Stack):
     def __init__(self, config, embed_tokens=None, patch_size=None):
         super().__init__(config)
-
-        self.embed_tokens = embed_tokens
+        self.set_input_embeddings(embed_tokens)
         self.is_decoder = config.is_decoder
 
         self.patch_num, self.patch_dim = patch_size
@@ -362,7 +361,8 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
         decoder_config.is_decoder = True
         decoder_config.is_encoder_decoder = False
         decoder_config.num_layers = config.num_decoder_layers
-        self.decoder = T5Stack(decoder_config, self.shared)
+        self.decoder = T5Stack(decoder_config)
+        self.decoder.set_input_embeddings(self.shared)
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
