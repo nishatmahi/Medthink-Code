@@ -41,19 +41,17 @@ class ClosedMedVQADataset(Dataset):
         source_text = " ".join(source_text.split())
         target_text = " ".join(target_text.split())
 
-        source = self.tokenizer.batch_encode_plus(
+        source = self.tokenizer(
             [source_text],
             max_length=self.source_len,
-            pad_to_max_length=True,
             truncation=True,
             padding="max_length",
             return_tensors="pt",
         )
 
-        target = self.tokenizer.batch_encode_plus(
+        target = self.tokenizer(
             [target_text],
             max_length=self.target_len,
-            pad_to_max_length=True,
             truncation=True,
             padding="max_length",
             return_tensors="pt",
@@ -171,19 +169,17 @@ class OpenMedVQADataset(Dataset):
         source_text = " ".join(source_text.split())
         target_text = " ".join(target_text.split())
 
-        source = self.tokenizer.batch_encode_plus(
+        source = self.tokenizer(
             [source_text],
             max_length=self.source_len,
-            pad_to_max_length=True,
             truncation=True,
             padding="max_length",
             return_tensors="pt",
         )
 
-        target = self.tokenizer.batch_encode_plus(
+        target = self.tokenizer(
             [target_text],
             max_length=self.target_len,
-            pad_to_max_length=True,
             truncation=True,
             padding="max_length",
             return_tensors="pt",
