@@ -114,7 +114,6 @@ def train_loop(_args):
         args=config,
         train_dataset=train_set,
         data_collator=datacollator,
-        tokenizer=tokenizer,
         compute_metrics=compute_metrics_rougel if _args.rational else compute_metrics_acc
     )
 

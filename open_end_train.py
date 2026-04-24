@@ -50,7 +50,6 @@ def train_loop(_args):
         args=config,
         train_dataset=train_set,
         data_collator=datacollator,
-        tokenizer=tokenizer,
     )
 
     trainer.train()
