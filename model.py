@@ -306,6 +306,11 @@ class JointEncoder(T5Stack):
 
         hidden_states = self.dropout(inputs_embeds)
 
+        past_key_values_length = mask_seq_length - seq_length
+        cache_position = torch.arange(
+            past_key_values_length, past_key_values_length + seq_length, device=inputs_embeds.device
+        )
+
         for i, (layer_module, past_key_value) in enumerate(zip(self.block, past_key_values)):
             layer_head_mask = head_mask[i]
             cross_attn_layer_head_mask = cross_attn_head_mask[i]
@@ -359,6 +364,8 @@ class JointEncoder(T5Stack):
                         kwargs['layer_head_mask'] = l_head_mask
                     if 'cross_attn_layer_head_mask' in _t5block_params:
                         kwargs['cross_attn_layer_head_mask'] = ca_l_head_mask
+                    if 'cache_position' in _t5block_params:
+                        kwargs['cache_position'] = cache_position
                     return tuple(layer_module(hidden_states, **kwargs))
 
                 layer_outputs = checkpoint(
@@ -395,6 +402,8 @@ class JointEncoder(T5Stack):
                     _block_kwargs['layer_head_mask'] = layer_head_mask
                 if 'cross_attn_layer_head_mask' in _t5block_params:
                     _block_kwargs['cross_attn_layer_head_mask'] = cross_attn_layer_head_mask
+                if 'cache_position' in _t5block_params:
+                    _block_kwargs['cache_position'] = cache_position
                 layer_outputs = layer_module(hidden_states, **_block_kwargs)
 
             # layer_outputs is a tuple with:
