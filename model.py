@@ -75,8 +75,8 @@ class JointEncoder(T5Stack):
     # methods from ModuleUtilsMixin / PreTrainedModel.                    #
     # ------------------------------------------------------------------ #
     def get_head_mask(
-        self, head_mask: Optional[torch.Tensor], num_hidden_layers: int, is_attention_chunked: bool = False
-    ) -> torch.Tensor:
+        self, head_mask, num_hidden_layers: int, is_attention_chunked: bool = False
+    ):
         """Prepare the head mask if needed."""
         if head_mask is not None:
             head_mask = self._convert_head_mask_to_5d(head_mask, num_hidden_layers)
@@ -86,7 +86,7 @@ class JointEncoder(T5Stack):
             head_mask = [None] * num_hidden_layers
         return head_mask
 
-    def _convert_head_mask_to_5d(self, head_mask: torch.Tensor, num_hidden_layers: int) -> torch.Tensor:
+    def _convert_head_mask_to_5d(self, head_mask, num_hidden_layers: int):
         """-> [num_hidden_layers x batch x num_heads x seq_length x seq_length]"""
         if head_mask.dim() == 1:
             head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
@@ -101,12 +101,11 @@ class JointEncoder(T5Stack):
         self,
         attention_mask: torch.Tensor,
         input_shape: tuple,
-        dtype: Optional[torch.dtype] = None,
+        dtype=None,
     ) -> torch.Tensor:
         """Convert a 2-D attention mask to extended (4-D) form used by attention layers."""
         if dtype is None:
             dtype = self.dtype
-
         if attention_mask.dim() == 3:
             extended_attention_mask = attention_mask[:, None, :, :]
         elif attention_mask.dim() == 2:
@@ -138,7 +137,6 @@ class JointEncoder(T5Stack):
             raise ValueError(
                 f"Wrong shape for attention_mask (shape {attention_mask.shape})"
             )
-
         extended_attention_mask = extended_attention_mask.to(dtype=dtype)
         extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(dtype).min
         return extended_attention_mask
@@ -358,19 +356,25 @@ class JointEncoder(T5Stack):
                     None,  # past_key_value is always None with gradient checkpointing
                 )
             else:
-                layer_outputs = layer_module(
-                    hidden_states,
+                # Build kwargs compatible with both transformers v4 and v5.
+                # In v5, T5Block.forward() dropped layer_head_mask / cross_attn_layer_head_mask.
+                import inspect as _inspect
+                _t5block_params = set(_inspect.signature(layer_module.forward).parameters)
+                _block_kwargs = dict(
                     attention_mask=extended_attention_mask,
                     position_bias=position_bias,
                     encoder_hidden_states=encoder_hidden_states,
                     encoder_attention_mask=encoder_extended_attention_mask,
                     encoder_decoder_position_bias=encoder_decoder_position_bias,
-                    layer_head_mask=layer_head_mask,
-                    cross_attn_layer_head_mask=cross_attn_layer_head_mask,
                     past_key_value=past_key_value,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
                 )
+                if 'layer_head_mask' in _t5block_params:
+                    _block_kwargs['layer_head_mask'] = layer_head_mask
+                if 'cross_attn_layer_head_mask' in _t5block_params:
+                    _block_kwargs['cross_attn_layer_head_mask'] = cross_attn_layer_head_mask
+                layer_outputs = layer_module(hidden_states, **_block_kwargs)
 
             # layer_outputs is a tuple with:
             # hidden-states, key-value-states, (self-attention position bias), (self-attention weights), (cross-attention position bias), (cross-attention weights)
