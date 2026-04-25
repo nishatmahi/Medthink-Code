@@ -337,14 +337,32 @@ class JointEncoder(T5Stack):
                     )
                     use_cache = False
 
-                def create_custom_forward(module):
-                    def custom_forward(*inputs):
-                        return tuple(module(*inputs, use_cache, output_attentions))
-
-                    return custom_forward
+                def custom_forward(hidden_states, ext_att_mask, pos_bias, enc_hid_states, enc_ext_att_mask, enc_dec_pos_bias, l_head_mask, ca_l_head_mask):
+                    import inspect as _inspect
+                    _t5block_params = set(_inspect.signature(layer_module.forward).parameters)
+                    kwargs = dict(
+                        attention_mask=ext_att_mask,
+                        position_bias=pos_bias,
+                        encoder_hidden_states=enc_hid_states,
+                        encoder_attention_mask=enc_ext_att_mask,
+                        encoder_decoder_position_bias=enc_dec_pos_bias,
+                    )
+                    if 'past_key_value' in _t5block_params:
+                        kwargs['past_key_value'] = None
+                    elif 'past_key_values' in _t5block_params:
+                        kwargs['past_key_values'] = None
+                    if 'use_cache' in _t5block_params:
+                        kwargs['use_cache'] = False
+                    if 'output_attentions' in _t5block_params:
+                        kwargs['output_attentions'] = output_attentions
+                    if 'layer_head_mask' in _t5block_params:
+                        kwargs['layer_head_mask'] = l_head_mask
+                    if 'cross_attn_layer_head_mask' in _t5block_params:
+                        kwargs['cross_attn_layer_head_mask'] = ca_l_head_mask
+                    return tuple(layer_module(hidden_states, **kwargs))
 
                 layer_outputs = checkpoint(
-                    create_custom_forward(layer_module),
+                    custom_forward,
                     hidden_states,
                     extended_attention_mask,
                     position_bias,
@@ -352,12 +370,10 @@ class JointEncoder(T5Stack):
                     encoder_extended_attention_mask,
                     encoder_decoder_position_bias,
                     layer_head_mask,
-                    cross_attn_layer_head_mask,
-                    None,  # past_key_value is always None with gradient checkpointing
+                    cross_attn_layer_head_mask
                 )
             else:
                 # Build kwargs compatible with both transformers v4 and v5.
-                # In v5, T5Block.forward() dropped layer_head_mask / cross_attn_layer_head_mask.
                 import inspect as _inspect
                 _t5block_params = set(_inspect.signature(layer_module.forward).parameters)
                 _block_kwargs = dict(
@@ -366,10 +382,15 @@ class JointEncoder(T5Stack):
                     encoder_hidden_states=encoder_hidden_states,
                     encoder_attention_mask=encoder_extended_attention_mask,
                     encoder_decoder_position_bias=encoder_decoder_position_bias,
-                    past_key_value=past_key_value,
-                    use_cache=use_cache,
-                    output_attentions=output_attentions,
                 )
+                if 'past_key_value' in _t5block_params:
+                    _block_kwargs['past_key_value'] = past_key_value
+                elif 'past_key_values' in _t5block_params:
+                    _block_kwargs['past_key_values'] = past_key_value
+                if 'use_cache' in _t5block_params:
+                    _block_kwargs['use_cache'] = use_cache
+                if 'output_attentions' in _t5block_params:
+                    _block_kwargs['output_attentions'] = output_attentions
                 if 'layer_head_mask' in _t5block_params:
                     _block_kwargs['layer_head_mask'] = layer_head_mask
                 if 'cross_attn_layer_head_mask' in _t5block_params:
