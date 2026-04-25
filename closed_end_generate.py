@@ -28,6 +28,11 @@ def eval_loop(_args):
         generation_max_length=_args.target_len,
     )
 
+    # Disable use_cache to avoid transformers v4.41+ T5 cross-attention key_length mismatch bug
+    if hasattr(model, "generation_config"):
+        model.generation_config.use_cache = False
+    model.config.use_cache = False
+
     trainer = Seq2SeqTrainer(
         model=model,
         args=config,
