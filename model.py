@@ -70,6 +70,96 @@ class JointEncoder(T5Stack):
         self.device_map = None
         self.gradient_checkpointing = False
 
+    # ------------------------------------------------------------------ #
+    # Compatibility shims for transformers >= 5.0 which removed these     #
+    # methods from ModuleUtilsMixin / PreTrainedModel.                    #
+    # ------------------------------------------------------------------ #
+    def get_head_mask(
+        self, head_mask: Optional[torch.Tensor], num_hidden_layers: int, is_attention_chunked: bool = False
+    ) -> torch.Tensor:
+        """Prepare the head mask if needed."""
+        if head_mask is not None:
+            head_mask = self._convert_head_mask_to_5d(head_mask, num_hidden_layers)
+            if is_attention_chunked is True:
+                head_mask = head_mask.unsqueeze(-1)
+        else:
+            head_mask = [None] * num_hidden_layers
+        return head_mask
+
+    def _convert_head_mask_to_5d(self, head_mask: torch.Tensor, num_hidden_layers: int) -> torch.Tensor:
+        """-> [num_hidden_layers x batch x num_heads x seq_length x seq_length]"""
+        if head_mask.dim() == 1:
+            head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+            head_mask = head_mask.expand(num_hidden_layers, -1, -1, -1, -1)
+        elif head_mask.dim() == 2:
+            head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
+        assert head_mask.dim() == 5, f"head_mask.dim != 5, instead {head_mask.dim()}"
+        head_mask = head_mask.to(dtype=self.dtype)
+        return head_mask
+
+    def get_extended_attention_mask(
+        self,
+        attention_mask: torch.Tensor,
+        input_shape: tuple,
+        dtype: Optional[torch.dtype] = None,
+    ) -> torch.Tensor:
+        """Convert a 2-D attention mask to extended (4-D) form used by attention layers."""
+        if dtype is None:
+            dtype = self.dtype
+
+        if attention_mask.dim() == 3:
+            extended_attention_mask = attention_mask[:, None, :, :]
+        elif attention_mask.dim() == 2:
+            if self.is_decoder:
+                batch_size, seq_length = input_shape
+                seq_ids = torch.arange(seq_length, device=attention_mask.device)
+                causal_mask = (
+                    seq_ids[None, None, :].repeat(batch_size, seq_length, 1)
+                    <= seq_ids[None, :, None]
+                )
+                causal_mask = causal_mask.to(attention_mask.dtype)
+                if causal_mask.shape[1] < attention_mask.shape[1]:
+                    prefix_seq_len = attention_mask.shape[1] - causal_mask.shape[1]
+                    causal_mask = torch.cat(
+                        [
+                            torch.ones(
+                                (batch_size, seq_length, prefix_seq_len),
+                                device=attention_mask.device,
+                                dtype=causal_mask.dtype,
+                            ),
+                            causal_mask,
+                        ],
+                        axis=-1,
+                    )
+                extended_attention_mask = causal_mask[:, None, :, :] * attention_mask[:, None, None, :]
+            else:
+                extended_attention_mask = attention_mask[:, None, None, :]
+        else:
+            raise ValueError(
+                f"Wrong shape for attention_mask (shape {attention_mask.shape})"
+            )
+
+        extended_attention_mask = extended_attention_mask.to(dtype=dtype)
+        extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(dtype).min
+        return extended_attention_mask
+
+    def invert_attention_mask(self, encoder_attention_mask: torch.Tensor) -> torch.Tensor:
+        """Invert an attention mask (e.g., switches 0 and 1 for encoder cross-attention)."""
+        if encoder_attention_mask.dim() == 3:
+            encoder_extended_attention_mask = encoder_attention_mask[:, None, :, :]
+        elif encoder_attention_mask.dim() == 2:
+            encoder_extended_attention_mask = encoder_attention_mask[:, None, None, :]
+        else:
+            raise ValueError(
+                f"Wrong shape for encoder_attention_mask (shape {encoder_attention_mask.shape})"
+            )
+        dtype = self.dtype
+        encoder_extended_attention_mask = encoder_extended_attention_mask.to(dtype=dtype)
+        encoder_extended_attention_mask = (
+            1.0 - encoder_extended_attention_mask
+        ) * torch.finfo(dtype).min
+        return encoder_extended_attention_mask
+
     @property
     def dtype(self):
         """Safe dtype property that won't raise StopIteration in DataParallel replicas."""
