@@ -31,7 +31,6 @@ def eval_loop(_args):
     trainer = Seq2SeqTrainer(
         model=model,
         args=config,
-        tokenizer=tokenizer,
         data_collator=datacollator
     )
 
