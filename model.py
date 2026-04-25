@@ -1,5 +1,7 @@
 from transformers import T5Config, T5ForConditionalGeneration
 from transformers.models.t5.modeling_t5 import T5Stack, T5Block, T5LayerNorm
+from transformers.utils import logging
+logger = logging.get_logger(__name__)
 __HEAD_MASK_WARNING_MSG = "The head_mask argument is deprecated and will be removed in future versions."
 import copy
 from transformers.modeling_outputs import ModelOutput, BaseModelOutput, BaseModelOutputWithPast, \
@@ -191,9 +193,7 @@ class JointEncoder(T5Stack):
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
-        extended_attention_mask = self.get_extended_attention_mask(
-            attention_mask, input_shape, device=inputs_embeds.device, dtype=inputs_embeds.dtype
-        )
+        extended_attention_mask = self.get_extended_attention_mask(attention_mask, input_shape, dtype=inputs_embeds.dtype)
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
