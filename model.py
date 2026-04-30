@@ -28,6 +28,7 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
         r"decoder\.embed_tokens\.weight",
         r"lm_head\.weight",
         r"image_dense\.", r"image_norm\.",
+        r"text_norm\.",
         r"q_proj\.", r"k_proj\.", r"v_proj\.", r"out_proj\.",
         r"gate_dense\.",
     ]
@@ -35,79 +36,131 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
         r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
     ]
 
-    def __init__(self, config: T5Config, patch_size=(100, 256)):
-        super().__init__(config)
+    def __init__(self, config: T5Config, patch_size=(100, 256), **kwargs):
+        super().__init__(config, **kwargs)
 
         patch_num, patch_dim = patch_size
         d = config.d_model  # 768 for t5-base
 
         # Image projection + normalization
         self.image_dense = nn.Linear(patch_dim, d)
-        self.image_norm = nn.LayerNorm(d)
+        self.image_norm  = nn.LayerNorm(d)
 
-        # Manual cross-attention
-        self.q_proj = nn.Linear(d, d)
-        self.k_proj = nn.Linear(d, d)
-        self.v_proj = nn.Linear(d, d)
+        # Text normalization before cross-attention query
+        self.text_norm   = nn.LayerNorm(d)
+
+        # Manual multi-head cross-attention (8 heads)
+        self.q_proj   = nn.Linear(d, d)
+        self.k_proj   = nn.Linear(d, d)
+        self.v_proj   = nn.Linear(d, d)
         self.out_proj = nn.Linear(d, d)
+        self.num_heads = 8
+        self.head_dim  = d // self.num_heads   # 96 for d=768
 
         # Gated fusion
         self.gate_dense = nn.Linear(2 * d, d)
-        self.gate_act = nn.Sigmoid()
+        self.gate_act   = nn.Sigmoid()
 
-        # Explicit init with proper scaling (do NOT use post_init —
-        # it applies T5's initializer_factor=1.0 as std, causing 10^38 overflow)
+        # Explicit init — do NOT use post_init() here.
+        # post_init() calls _init_weights() on the entire model which
+        # reinitializes the already-loaded pretrained T5 weights and
+        # causes image_dense to output values of ~1e38, making
+        # LayerNorm produce NaN immediately on the first forward pass.
         for layer in [self.image_dense, self.q_proj, self.k_proj,
                       self.v_proj, self.out_proj, self.gate_dense]:
             nn.init.xavier_uniform_(layer.weight)
             nn.init.zeros_(layer.bias)
 
+    # ------------------------------------------------------------------ #
+    #  Image fusion                                                        #
+    # ------------------------------------------------------------------ #
+
     def _fuse_image_features(self, hidden_states, image_ids):
-        """Gated cross-attention fusion: Q=text, K=V=image."""
-        # Project and normalize image features
-        image_emb = self.image_norm(self.image_dense(image_ids))  # [B,100,d]
+        """Gated cross-attention fusion: Q=text, K=V=image.
 
-        # Cross-attention with manual softmax (numerically safe)
-        Q = self.q_proj(hidden_states)       # [B, seq, d]
-        K = self.k_proj(image_emb)           # [B, 100, d]
-        V = self.v_proj(image_emb)           # [B, 100, d]
+        Args:
+            hidden_states : [B, seq_len, d]  — T5 encoder output
+            image_ids     : [B, 100,     256] — pre-extracted DETR features
+        Returns:
+            fused         : [B, seq_len, d]
+        """
+        B, seq, d = hidden_states.shape
 
-        d_k = Q.size(-1)
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
-        scores = scores.clamp(-50, 50)       # prevent softmax overflow
-        attn_weights = F.softmax(scores, dim=-1)
-        image_att = self.out_proj(torch.matmul(attn_weights, V))  # [B, seq, d]
+        # ── Image branch ──────────────────────────────────────────────
+        # Clamp before LayerNorm to guard against any residual overflow
+        image_emb = self.image_norm(
+            self.image_dense(image_ids).clamp(-50, 50)
+        )  # [B, 100, d]
 
-        # Gated fusion: lambda = sigma(W * [F_T ; H_attn])
-        gate = self.gate_act(self.gate_dense(
-            torch.cat([hidden_states, image_att], dim=-1)
-        ))
+        # ── Normalize text query ──────────────────────────────────────
+        text_q = self.text_norm(hidden_states)  # [B, seq, d]
+
+        # ── Multi-head projections ────────────────────────────────────
+        def split_heads(x):
+            # x: [B, N, d] → [B, heads, N, head_dim]
+            B, N, _ = x.shape
+            return x.view(B, N, self.num_heads, self.head_dim).transpose(1, 2)
+
+        Q = split_heads(self.q_proj(text_q))    # [B, h, seq, hd]
+        K = split_heads(self.k_proj(image_emb)) # [B, h, 100, hd]
+        V = split_heads(self.v_proj(image_emb)) # [B, h, 100, hd]
+
+        # ── Scaled dot-product attention ──────────────────────────────
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.head_dim)
+        scores = scores.clamp(-50, 50)           # prevent softmax overflow
+        attn_weights = F.softmax(scores, dim=-1) # [B, h, seq, 100]
+
+        # Merge heads back
+        attn_out = torch.matmul(attn_weights, V)                        # [B, h, seq, hd]
+        attn_out = attn_out.transpose(1, 2).contiguous().view(B, seq, d) # [B, seq, d]
+        image_att = self.out_proj(attn_out)                              # [B, seq, d]
+
+        # ── Gated fusion ──────────────────────────────────────────────
+        gate = self.gate_act(
+            self.gate_dense(torch.cat([hidden_states, image_att], dim=-1))
+        )
         return (1 - gate) * hidden_states + gate * image_att
+
+    # ------------------------------------------------------------------ #
+    #  Forward                                                             #
+    # ------------------------------------------------------------------ #
 
     def forward(
         self,
-        input_ids=None, image_ids=None, attention_mask=None,
-        decoder_input_ids=None, decoder_attention_mask=None,
-        head_mask=None, decoder_head_mask=None, cross_attn_head_mask=None,
-        encoder_outputs=None, past_key_values=None,
-        inputs_embeds=None, decoder_inputs_embeds=None,
-        labels=None, use_cache=None,
-        output_attentions=None, output_hidden_states=None,
-        return_dict=None, **kwargs,
+        input_ids=None,
+        image_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        labels=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        **kwargs,
     ):
-        use_cache = use_cache if use_cache is not None else self.config.use_cache
+        use_cache   = use_cache   if use_cache   is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        # Step 1: Encode text
+        # ── Step 1: Encode text ───────────────────────────────────────
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
-                input_ids=input_ids, attention_mask=attention_mask,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
                 inputs_embeds=inputs_embeds,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=True,
             )
-            # Step 2: Fuse with image
+
+            # ── Step 2: Fuse with image ───────────────────────────────
             if image_ids is not None:
                 fused = self._fuse_image_features(
                     encoder_outputs.last_hidden_state, image_ids
@@ -117,6 +170,7 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
                     hidden_states=encoder_outputs.hidden_states,
                     attentions=encoder_outputs.attentions,
                 )
+
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
@@ -126,17 +180,22 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
 
         hidden_states = encoder_outputs[0]
 
-        # Step 3: Prepare decoder inputs
+        # ── Step 3: Prepare decoder inputs ───────────────────────────
         if labels is not None and decoder_input_ids is None and decoder_inputs_embeds is None:
             decoder_input_ids = self._shift_right(labels)
 
-        # Step 4: Decode
+        # ── Step 4: Decode ────────────────────────────────────────────
         decoder_kwargs = dict(
-            input_ids=decoder_input_ids, attention_mask=decoder_attention_mask,
-            inputs_embeds=decoder_inputs_embeds, past_key_values=past_key_values,
-            encoder_hidden_states=hidden_states, encoder_attention_mask=attention_mask,
-            use_cache=use_cache, output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states, return_dict=return_dict,
+            input_ids=decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            inputs_embeds=decoder_inputs_embeds,
+            past_key_values=past_key_values,
+            encoder_hidden_states=hidden_states,
+            encoder_attention_mask=attention_mask,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
         )
         if "cache_position" in kwargs:
             decoder_kwargs["cache_position"] = kwargs["cache_position"]
@@ -149,7 +208,7 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
 
         lm_logits = self.lm_head(sequence_output)
 
-        # Step 5: Loss
+        # ── Step 5: Loss ──────────────────────────────────────────────
         loss = None
         if labels is not None:
             loss = CrossEntropyLoss(ignore_index=-100)(
@@ -161,7 +220,8 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
             return ((loss,) + output) if loss is not None else output
 
         return Seq2SeqLMOutput(
-            loss=loss, logits=lm_logits,
+            loss=loss,
+            logits=lm_logits,
             past_key_values=decoder_outputs.past_key_values,
             decoder_hidden_states=decoder_outputs.hidden_states,
             decoder_attentions=decoder_outputs.attentions,
@@ -170,6 +230,10 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
         )
+
+    # ------------------------------------------------------------------ #
+    #  Generation support                                                  #
+    # ------------------------------------------------------------------ #
 
     def prepare_inputs_for_generation(self, *args, **kwargs):
         image_ids = kwargs.pop("image_ids", None)
@@ -186,6 +250,6 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
             **kwargs,
         )
         return {
-            "preds": tokenizer.batch_decode(output, skip_special_tokens=True),
+            "preds":   tokenizer.batch_decode(output, skip_special_tokens=True),
             "targets": tokenizer.batch_decode(batch["labels"], skip_special_tokens=True),
         }
