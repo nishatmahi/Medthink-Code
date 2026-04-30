@@ -45,8 +45,7 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
         self.image_dense = nn.Linear(patch_dim, d)
         self.image_norm = nn.LayerNorm(d)
 
-        # Manual cross-attention (avoids nn.MultiheadAttention CUDA issues
-        # where head_dim=768 exceeds flash-attention's 256 limit → silent NaN)
+        # Manual cross-attention
         self.q_proj = nn.Linear(d, d)
         self.k_proj = nn.Linear(d, d)
         self.v_proj = nn.Linear(d, d)
@@ -56,7 +55,12 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
         self.gate_dense = nn.Linear(2 * d, d)
         self.gate_act = nn.Sigmoid()
 
-        self.post_init()
+        # Explicit init with proper scaling (do NOT use post_init —
+        # it applies T5's initializer_factor=1.0 as std, causing 10^38 overflow)
+        for layer in [self.image_dense, self.q_proj, self.k_proj,
+                      self.v_proj, self.out_proj, self.gate_dense]:
+            nn.init.xavier_uniform_(layer.weight)
+            nn.init.zeros_(layer.bias)
 
     def _fuse_image_features(self, hidden_states, image_ids):
         """Gated cross-attention fusion: Q=text, K=V=image."""
