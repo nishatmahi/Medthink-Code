@@ -17,9 +17,11 @@ def eval_loop(_args):
     np.random.seed(_args.seed)  # numpy random seed
     torch.backends.cudnn.deterministic = True
 
-    model = T5ForMultimodalGeneration.from_pretrained(_args.model_path, (100, 256))
+    model = T5ForMultimodalGeneration.from_pretrained(
+        _args.model_path, (100, 256), torch_dtype=torch.float32
+    )
     tokenizer = AutoTokenizer.from_pretrained(_args.model_path)
-    datacollator = DataCollatorForSeq2Seq(tokenizer=tokenizer)
+    datacollator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, label_pad_token_id=-100)
 
     config = Seq2SeqTrainingArguments(
         output_dir="./",
