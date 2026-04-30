@@ -65,10 +65,34 @@ class JointEncoder(T5Stack):
 
         # Initialize weights and apply final processing
         self.post_init()
+        # Re-initialize the NEW multimodal layers with small weights.
+        # post_init() uses T5's default (std ~ 1/sqrt(d_model) ~ 0.036) which
+        # can cause NaN when combined with large-range DETR features.
+        # std=0.02 keeps activations in a safe numerical range.
+        self._init_multimodal_weights()
         # Model parallel
         self.model_parallel = False
         self.device_map = None
         self.gradient_checkpointing = False
+
+    def _init_multimodal_weights(self):
+        """Re-initialize newly added multimodal layers with small weights.
+
+        T5's default init (std ~ 1/sqrt(d_model)) can cause softmax overflow
+        in the MHA layer when combined with DETR features that have a large
+        dynamic range, producing NaN loss and NaN gradients from the first step.
+        Using std=0.02 (same as GPT-2 / BERT standard) keeps activations safe.
+        """
+        for module in [self.image_dense, self.gate_dense]:
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+        nn.init.normal_(self.mha_layer.in_proj_weight, mean=0.0, std=0.02)
+        if self.mha_layer.in_proj_bias is not None:
+            nn.init.zeros_(self.mha_layer.in_proj_bias)
+        nn.init.normal_(self.mha_layer.out_proj.weight, mean=0.0, std=0.02)
+        if self.mha_layer.out_proj.bias is not None:
+            nn.init.zeros_(self.mha_layer.out_proj.bias)
 
     # ------------------------------------------------------------------ #
     # Compatibility shims for transformers >= 5.0 which removed these     #
@@ -442,6 +466,13 @@ class JointEncoder(T5Stack):
             all_hidden_states = all_hidden_states + (hidden_states,)
 
         image_embedding = self.image_dense(image_ids)
+        # Normalize image embeddings before MHA to prevent attention logit overflow.
+        # DETR features have a large dynamic range (~[-50, +50]). After the linear
+        # projection, values can reach ~460 causing Q·K^T/sqrt(d) to overflow in
+        # softmax → NaN. LayerNorm keeps activations stable at every training step.
+        image_embedding = torch.nn.functional.layer_norm(
+            image_embedding, image_embedding.shape[-1:]
+        )
 
         image_att, _ = self.mha_layer(hidden_states, image_embedding, image_embedding)
 
@@ -481,6 +512,10 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
     ]
 
     def __init__(self, config: T5Config, patch_size):
+        # The checkpoint stores separate weights for shared/lm_head/embed_tokens.
+        # Disabling tie_word_embeddings prevents the "will NOT tie them" warning
+        # and avoids incorrect weight sharing during from_pretrained.
+        config.tie_word_embeddings = False
         super().__init__(config)
         self.model_dim = config.d_model
 

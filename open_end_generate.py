@@ -17,8 +17,8 @@ def eval_loop(_args):
     np.random.seed(_args.seed)  # numpy random seed
     torch.backends.cudnn.deterministic = True
 
-    model = T5ForMultimodalGeneration.from_pretrained(_args.pretrained_model_path, (100, 256))
-    tokenizer = AutoTokenizer.from_pretrained(_args.pretrained_model_path)
+    model = T5ForMultimodalGeneration.from_pretrained(_args.model_path, (100, 256))
+    tokenizer = AutoTokenizer.from_pretrained(_args.model_path)
     datacollator = DataCollatorForSeq2Seq(tokenizer=tokenizer)
 
     config = Seq2SeqTrainingArguments(
@@ -96,14 +96,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42, help='Random Seed')
     parser.add_argument('--dataset', type=str, choices=['rad', 'slake'])
     parser.add_argument('--method', type=str, choices={"Explanation", "Reasoning", "First-Stage_Reasoning", "Second-Stage_Reasoning", "without_R"})
-    parser.add_argument('--pretrained_model_path', type=str, default='None', help='Pretrained model path for initialization')
-    parser.add_argument('--no_validate', action='store_false', default=True)
     args = parser.parse_args()
-
-    # Ensure model_path is used if pretrained_model_path is not provided
-    if args.pretrained_model_path == 'None' and args.model_path != 'None':
-        args.pretrained_model_path = args.model_path
-
     for arg, value in vars(args).items():
         print(f"{arg}: {value}")
     eval_loop(args)
