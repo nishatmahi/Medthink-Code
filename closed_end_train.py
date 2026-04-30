@@ -31,7 +31,8 @@ def train_loop(_args):
     config = Seq2SeqTrainingArguments(
             output_dir=save_dir,
             eval_strategy="no",
-            logging_strategy="epoch",
+            logging_strategy="steps",
+            logging_steps=100,
             save_strategy="no",
             save_total_limit=1,
             learning_rate=_args.lr,
@@ -43,6 +44,7 @@ def train_loop(_args):
             generation_max_length=_args.target_len,
             load_best_model_at_end=False,
             report_to=["none"],
+            disable_tqdm=True,
         )
 
     # ========== Define compute_metrics functions ==============================
