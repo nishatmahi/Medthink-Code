@@ -37,7 +37,6 @@ class ClosedMedVQADataset(Dataset):
         target_text = str(self.target_text[item])
         img_index = self.img_index[item]
 
-        # Normalize whitespace: remove extra spaces, tabs, and newlines.
         source_text = " ".join(source_text.split())
         target_text = " ".join(target_text.split())
 
@@ -62,12 +61,17 @@ class ClosedMedVQADataset(Dataset):
         image_ids = self.pretrained_feature[img_index].squeeze()
         target_ids = target["input_ids"].squeeze()
 
+        # ✅ Replace padding token ids with -100 so loss ignores them
+        labels = target_ids.clone()
+        labels[labels == self.tokenizer.pad_token_id] = -100
+
         return {
             "input_ids": source_ids,
             "attention_mask": source_mask,
             "image_ids": image_ids,
-            "labels": target_ids
+            "labels": labels
         }
+
 
 class ClosedInputAndTargetAndImg:
     def __init__(self, problem):
@@ -129,7 +133,8 @@ class ClosedInputAndTargetAndImg:
         elif dataset == "slake":
             return self.problem["img_id"]
         else:
-            raise ValueError(f"Invalid _dataset value: {dataset}. The value must be 'rad' or 'slake'.")
+            raise ValueError(f"Invalid _dataset value: {dataset}. Must be 'rad' or 'slake'.")
+
 
 class OpenMedVQADataset(Dataset):
     def __init__(self, _tokenizer, _text_file_path, _img_file_path, _img_name_map,
@@ -147,6 +152,7 @@ class OpenMedVQADataset(Dataset):
             data = json.load(TextFile)
         with open(_img_name_map, "r", encoding="utf-8") as NameFile:
             name_map = json.load(NameFile)
+
         for problem in data:
             pair = OpenInputAndTargetAndImg(data[problem])
             prompt = pair.get_input(method=_method)
@@ -165,7 +171,6 @@ class OpenMedVQADataset(Dataset):
         target_text = str(self.target_text[item])
         img_index = self.img_index[item]
 
-        # Normalize whitespace: remove extra spaces, tabs, and newlines.
         source_text = " ".join(source_text.split())
         target_text = " ".join(target_text.split())
 
@@ -190,12 +195,17 @@ class OpenMedVQADataset(Dataset):
         image_ids = self.pretrained_feature[img_index].squeeze()
         target_ids = target["input_ids"].squeeze()
 
+        # ✅ Replace padding token ids with -100 so loss ignores them
+        labels = target_ids.clone()
+        labels[labels == self.tokenizer.pad_token_id] = -100
+
         return {
             "input_ids": source_ids,
             "attention_mask": source_mask,
             "image_ids": image_ids,
-            "labels": target_ids
+            "labels": labels
         }
+
 
 class OpenInputAndTargetAndImg:
     def __init__(self, problem):
@@ -245,5 +255,4 @@ class OpenInputAndTargetAndImg:
         elif _dataset == "slake":
             return str(self.problem["img_id"])
         else:
-            raise ValueError(f"Invalid _dataset value: {_dataset}. The value must be 'rad' or 'slake'.")
-
+            raise ValueError(f"Invalid _dataset value: {_dataset}. Must be 'rad' or 'slake'.")
