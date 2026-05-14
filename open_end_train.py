@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument('--train_text_file_path', type=str, default='None')
     parser.add_argument('--img_file_path', type=str, default='None')
     parser.add_argument('--img_name_map', type=str, default='None')
-    parser.add_argument('--pretrained_model_path', type=str, default='None')
+    parser.add_argument('--pretrained_model_path', type=str, default='google/mt5-base')
     parser.add_argument('--output_dir', type=str, default='None')
     parser.add_argument('--method', type=str, choices={"Explanation", "Reasoning", "First-Stage_Reasoning", "Second-Stage_Reasoning", "without_R"})
     parser.add_argument('--source_len', type=int, default=512)

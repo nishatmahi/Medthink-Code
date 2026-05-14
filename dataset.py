@@ -101,29 +101,29 @@ class ClosedInputAndTargetAndImg:
 
     def get_target(self, method):
         if method == "Explanation":
-            return f"The answer is {self.answer_text}.\nSolution: {self.problem['solution']}"
+            return f"সঠিক উত্তর হলো {self.answer_text}.\nসমাধান: {self.problem['solution']}"
         elif method == "Reasoning":
-            return f"{self.problem['solution']}\nAnswer: The answer is {self.answer_text}."
+            return f"{self.problem['solution']}\nউত্তর: সঠিক উত্তর হলো {self.answer_text}."
         elif method == "First-Stage_Reasoning":
             return f"{self.problem['solution']}"
         elif method == "Second-Stage_Reasoning":
-            return f"The answer is {self.answer_text}."
+            return f"সঠিক উত্তর হলো {self.answer_text}."
         elif method == "without_R":
-            return f"The answer is {self.answer_text}."
+            return f"সঠিক উত্তর হলো {self.answer_text}."
         else:
             raise ValueError("Please Check the Value of Method.")
 
     def get_input(self, method):
         if method == "Explanation":
-            return f"Question: {self.question_text}\nOptions: {self.choice_text}\nAnswer:"
+            return f"প্রশ্ন: {self.question_text}\nবিকল্প: {self.choice_text}\nউত্তর:"
         elif method == "Reasoning":
-            return f"Question: {self.question_text}\nOptions: {self.choice_text}\nSolution:"
+            return f"প্রশ্ন: {self.question_text}\nবিকল্প: {self.choice_text}\nসমাধান:"
         elif method == "First-Stage_Reasoning":
-            return f"Question: {self.question_text}\nOptions: {self.choice_text}\nSolution:"
+            return f"প্রশ্ন: {self.question_text}\nবিকল্প: {self.choice_text}\nসমাধান:"
         elif method == "Second-Stage_Reasoning":
-            return f"Question: {self.question_text}\nOptions: {self.choice_text}\nSolution: {self.solution_text}\nAnswer:"
+            return f"প্রশ্ন: {self.question_text}\nবিকল্প: {self.choice_text}\nসমাধান: {self.solution_text}\nউত্তর:"
         elif method == "without_R":
-            return f"Question: {self.question_text}\nOptions: {self.choice_text}\nAnswer:"
+            return f"প্রশ্ন: {self.question_text}\nবিকল্প: {self.choice_text}\nউত্তর:"
         else:
             raise ValueError("Please Check the Value of Method.")
 
@@ -225,27 +225,27 @@ class OpenInputAndTargetAndImg:
 
     def get_target(self, method):
         if method == "Explanation":
-            return f"The answer is {self.answer_text}.\nSolution: {self.problem['solution']}"
+            return f"সঠিক উত্তর হলো {self.answer_text}.\nসমাধান: {self.problem['solution']}"
         elif method == "Reasoning":
-            return f"{self.problem['solution']}\nAnswer: The answer is {self.answer_text}."
+            return f"{self.problem['solution']}\nউত্তর: সঠিক উত্তর হলো {self.answer_text}."
         elif method == "First-Stage_Reasoning":
             return f"{self.problem['solution']}"
         elif method == "Second-Stage_Reasoning":
-            return f"The answer is {self.answer_text}."
+            return f"সঠিক উত্তর হলো {self.answer_text}."
         elif method == "without_R":
-            return f"The answer is {self.answer_text}."
+            return f"সঠিক উত্তর হলো {self.answer_text}."
         else:
             raise ValueError("Please Check the Value of Method.")
 
     def get_input(self, method):
         if method == "Explanation":
-            return f"Question: {self.question_text}\nAnswer:"
+            return f"প্রশ্ন: {self.question_text}\nউত্তর:"
         elif method == "Reasoning":
-            return f"Question: {self.question_text}\nSolution:"
+            return f"প্রশ্ন: {self.question_text}\nসমাধান:"
         elif method == "First-Stage_Reasoning":
-            return f"Question: {self.question_text}\nSolution:"
+            return f"প্রশ্ন: {self.question_text}\nসমাধান:"
         elif method == "Second-Stage_Reasoning":
-            return f"Question: {self.question_text}\nSolution: {self.solution_text}\nAnswer:"
+            return f"প্রশ্ন: {self.question_text}\nসমাধান: {self.solution_text}\nউত্তর:"
         else:
             raise ValueError("Please Check the Value of Method.")
 

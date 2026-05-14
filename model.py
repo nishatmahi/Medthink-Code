@@ -1,7 +1,7 @@
 """T5ForMultimodalGeneration — Gated Vision-Language Fusion on T5.
 
 Architecture (MedThink paper):
-  1. TextualEncoder: stock T5 encoder (UnifiedQA-T5-base)
+  1. TextualEncoder: stock T5 encoder (google/mt5-base)
   2. VisualEncoder:  pre-extracted DETR features [B, 100, 256]
   3. Cross-Attention: MHA(Q=text, K=image, V=image)
   4. Gated Fusion:   lambda=sigma(W*[F_T;H_attn]), F_fuse=(1-lambda)*F_T + lambda*H_attn

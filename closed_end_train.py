@@ -1,4 +1,4 @@
-import nltk
+from bnlp import BengaliStemmer
 import evaluate
 import argparse
 import re
@@ -57,16 +57,18 @@ def train_loop(_args):
         warmup_ratio=0.05,
     )
 
-    # ========== Define compute_metrics functions ==============================
+    bn_stemmer = BengaliStemmer()
+
     def postprocess_text(_preds, _labels):
         _preds  = [pred.strip()  for pred  in _preds]
         _labels = [label.strip() for label in _labels]
-        _preds  = ["\n".join(nltk.sent_tokenize(pred))  for pred  in _preds]
+        _preds = ["\n".join(nltk.sent_tokenize(pred)) for pred in _preds]
         _labels = ["\n".join(nltk.sent_tokenize(label)) for label in _labels]
         return _preds, _labels
 
     def extract_ans(_ans):
-        pattern = re.compile(r'The answer is \(([A-Z])\)')
+        # Bangla: "সঠিক উত্তর হলো (A)"
+        pattern = re.compile(r'সঠিক উত্তর হলো\s*\(([A-Z])\)')
         res = pattern.findall(_ans)
         if len(res) == 1:
             return res[0]
@@ -82,6 +84,7 @@ def train_loop(_args):
         decoded_preds   = tokenizer.batch_decode(preds,   skip_special_tokens=True, clean_up_tokenization_spaces=True)
         decoded_targets = tokenizer.batch_decode(targets, skip_special_tokens=True, clean_up_tokenization_spaces=True)
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_targets)
+
         result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
         result = {k: round(v * 100, 4) for k, v in result.items()}
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
@@ -130,10 +133,10 @@ def train_loop(_args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--train_text_file_path', type=str, default='None')
-    parser.add_argument('--img_file_path',        type=str, default='None')
-    parser.add_argument('--img_name_map',         type=str, default='None')
-    parser.add_argument('--pretrained_model_path',type=str, default='None')
-    parser.add_argument('--output_dir',           type=str, default='None')
+    parser.add_argument('--img_file_path', type=str, default='None')
+    parser.add_argument('--img_name_map', type=str, default='None')
+    parser.add_argument('--pretrained_model_path', type=str, default='None')
+    parser.add_argument('--output_dir', type=str, default='None')
     parser.add_argument('--method', type=str, choices=["Explanation", "Reasoning", "First-Stage_Reasoning", "Second-Stage_Reasoning", "without_R"])
     parser.add_argument('--source_len', type=int,   default=512)
     parser.add_argument('--target_len', type=int,   default=64)
