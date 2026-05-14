@@ -1,4 +1,3 @@
-from bnlp.nltk import BengaliStemmer
 import evaluate
 import argparse
 import re
@@ -57,17 +56,13 @@ def train_loop(_args):
         warmup_ratio=0.05,
     )
 
-    bn_stemmer = BengaliStemmer()
-
+    # Post-processing for evaluation metrics
     def postprocess_text(_preds, _labels):
         _preds  = [pred.strip()  for pred  in _preds]
         _labels = [label.strip() for label in _labels]
         # Regex-based sentence splitting for Bangla (dari ।, ?, !)
         _preds = ["\n".join(s.strip() for s in re.split(r'[।?!]', pred) if s.strip()) for pred in _preds]
         _labels = ["\n".join(s.strip() for s in re.split(r'[।?!]', label) if s.strip()) for label in _labels]
-        # Pre-stem with Bangla stemmer for accurate ROUGE
-        _preds = [" ".join(bn_stemmer.stem(w) for w in pred.split()) for pred in _preds]
-        _labels = [" ".join(bn_stemmer.stem(w) for w in label.split()) for label in _labels]
         return _preds, _labels
 
     def extract_ans(_ans):
