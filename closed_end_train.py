@@ -54,6 +54,8 @@ def train_loop(_args):
         # ✅ Prevent exploding gradients during early multimodal training
         max_grad_norm=1.0,
         warmup_ratio=0.05,
+        fp16=_args.fp16,
+        gradient_accumulation_steps=_args.grad_accum,
     )
 
     # Post-processing for evaluation metrics
@@ -145,6 +147,8 @@ if __name__ == "__main__":
     parser.add_argument('--wd',         type=float, default=1e-2)
     parser.add_argument('--seed',       type=int,   default=42)
     parser.add_argument('--dataset',    type=str,   choices=['rad', 'slake'])
+    parser.add_argument('--fp16',       action='store_true', help='Use mixed precision (half memory usage)')
+    parser.add_argument('--grad_accum', type=int,   default=1, help='Gradient accumulation steps')
     parser.add_argument('--rational',   action='store_true', help='Use ROUGE metric if rational is present')
     args = parser.parse_args()
     for arg, value in vars(args).items():
