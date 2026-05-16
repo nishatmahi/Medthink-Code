@@ -59,7 +59,19 @@ def train_loop(_args):
         data_collator=datacollator,
     )
 
-    trainer.train()
+    # ✅ Auto-detect latest checkpoint and resume (no manual flag needed)
+    latest_ckpt = None
+    if os.path.isdir(save_dir):
+        checkpoints = [d for d in os.listdir(save_dir) if d.startswith("checkpoint-")]
+        if checkpoints:
+            latest_ckpt = os.path.join(save_dir, sorted(checkpoints, key=lambda x: int(x.split("-")[1]))[-1])
+            print(f"[AUTO-RESUME] Found checkpoint: {latest_ckpt}")
+        else:
+            print("[AUTO-RESUME] No checkpoint found. Training from scratch.")
+    else:
+        print("[AUTO-RESUME] Save dir does not exist yet. Training from scratch.")
+
+    trainer.train(resume_from_checkpoint=latest_ckpt)
     trainer.save_model(save_dir)
 
 
