@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser.add_argument('--target_len',     type=int, default=256)
     parser.add_argument('--eval_bs',        type=int, default=8)
     parser.add_argument('--seed',           type=int, default=42)
-    parser.add_argument('--dataset', type=str, choices=['rad', 'slake'])
+    parser.add_argument('--dataset', type=str, choices=['rad', 'slake', 'path'])
     parser.add_argument('--method',  type=str, choices=["Explanation", "Reasoning", "First-Stage_Reasoning", "Second-Stage_Reasoning", "without_R"])
     args = parser.parse_args()
     for arg, value in vars(args).items():

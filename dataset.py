@@ -128,12 +128,13 @@ class ClosedInputAndTargetAndImg:
             raise ValueError("Please Check the Value of Method.")
 
     def get_img(self, dataset):
-        if dataset == "rad":
+        if dataset == "rad" or dataset == "path":
             return self.problem['image'][:-4]
         elif dataset == "slake":
-            return self.problem["img_id"]
+            # ✅ Fixed: must be str to match name_map string keys from extract_img_feature.py
+            return str(self.problem["img_id"])
         else:
-            raise ValueError(f"Invalid _dataset value: {dataset}. Must be 'rad' or 'slake'.")
+            raise ValueError(f"Invalid _dataset value: {dataset}. Must be 'rad', 'slake', or 'path'.")
 
 
 class OpenMedVQADataset(Dataset):
@@ -154,7 +155,7 @@ class OpenMedVQADataset(Dataset):
             name_map = json.load(NameFile)
 
         for problem in data:
-            pair = OpenInputAndTargetAndImg(data[problem])
+            pair = OpenInputAndTargetAndImg(data[problem], _dataset)
             prompt = pair.get_input(method=_method)
             target = pair.get_target(method=_method)
             img = pair.get_img(_dataset=_dataset)
@@ -208,8 +209,9 @@ class OpenMedVQADataset(Dataset):
 
 
 class OpenInputAndTargetAndImg:
-    def __init__(self, problem):
+    def __init__(self, problem, _dataset="rad"):
         self.problem = problem
+        self._dataset = _dataset
         self.question_text = self.get_question_text()
         self.answer_text = self.get_answer()
         self.solution_text = self.get_solution_text()
@@ -218,7 +220,12 @@ class OpenInputAndTargetAndImg:
         return self.problem['question']
 
     def get_answer(self):
-        return self.problem['choices'][0]
+        if self._dataset == "path":
+            # ✅ PathVQA open-end: answer is a free-text string, not an index into choices
+            return str(self.problem['answer'])
+        else:
+            # RAD / SLAKE: choices[0] is always the single correct answer
+            return self.problem['choices'][0]
 
     def get_solution_text(self):
         return self.problem['solution']
@@ -246,13 +253,15 @@ class OpenInputAndTargetAndImg:
             return f"প্রশ্ন: {self.question_text}\nসমাধান:"
         elif method == "Second-Stage_Reasoning":
             return f"প্রশ্ন: {self.question_text}\nসমাধান: {self.solution_text}\nউত্তর:"
+        elif method == "without_R":
+            return f"প্রশ্ন: {self.question_text}\nউত্তর:"
         else:
             raise ValueError("Please Check the Value of Method.")
 
     def get_img(self, _dataset):
-        if _dataset == "rad":
+        if _dataset == "rad" or _dataset == "path":
             return self.problem['image'][:-4]
         elif _dataset == "slake":
             return str(self.problem["img_id"])
         else:
-            raise ValueError(f"Invalid _dataset value: {_dataset}. Must be 'rad' or 'slake'.")
+            raise ValueError(f"Invalid _dataset value: {_dataset}. Must be 'rad', 'slake', or 'path'.")

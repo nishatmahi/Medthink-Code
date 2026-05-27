@@ -37,8 +37,7 @@ def train_loop(_args):
     config = Seq2SeqTrainingArguments(
         output_dir=save_dir,
         eval_strategy="no",
-        logging_strategy="steps",
-        logging_steps=100,
+        logging_strategy="epoch",
         save_strategy="epoch",
         save_total_limit=2,
         learning_rate=_args.lr,
@@ -158,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument('--bs',         type=int,   default=8)
     parser.add_argument('--wd',         type=float, default=1e-2)
     parser.add_argument('--seed',       type=int,   default=42)
-    parser.add_argument('--dataset',    type=str,   choices=['rad', 'slake'])
+    parser.add_argument('--dataset',    type=str,   choices=['rad', 'slake', 'path'])
     parser.add_argument('--fp16',       action='store_true', help='Use mixed precision (half memory usage)')
     parser.add_argument('--grad_accum', type=int,   default=1, help='Gradient accumulation steps')
     parser.add_argument('--rational',   action='store_true', help='Use ROUGE metric if rational is present')

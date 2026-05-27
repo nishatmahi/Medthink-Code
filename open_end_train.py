@@ -1,5 +1,6 @@
 import torch
 import argparse
+import re
 import os
 import numpy as np
 
@@ -12,13 +13,20 @@ from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer
 from dataset import OpenMedVQADataset
 
 def train_loop(_args):
-    torch.manual_seed(_args.seed)  # pytorch random seed
-    np.random.seed(_args.seed)  # numpy random seed
+    torch.manual_seed(_args.seed)
+    np.random.seed(_args.seed)
     torch.backends.cudnn.deterministic = True
 
+    # ✅ Fixed: patch_size as explicit kwarg, not positional arg
     model = T5ForMultimodalGeneration.from_pretrained(
-        _args.pretrained_model_path, (100, 256), torch_dtype=torch.float32
+        _args.pretrained_model_path,
+        patch_size=(100, 256),
+        torch_dtype=torch.float32,
+        ignore_mismatched_sizes=True,
     )
+    # ✅ Silence tied-weights warning
+    model.config.tie_word_embeddings = False
+
     tokenizer = AutoTokenizer.from_pretrained(_args.pretrained_model_path)
     datacollator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, label_pad_token_id=-100)
 
@@ -26,20 +34,52 @@ def train_loop(_args):
     os.makedirs(save_dir, exist_ok=True)
 
     config = Seq2SeqTrainingArguments(
-            output_dir=save_dir,
-            eval_strategy="no",
-            logging_strategy="epoch",
-            save_strategy="epoch",
-            save_total_limit=2,
-            learning_rate=_args.lr,
-            per_device_train_batch_size=_args.bs,
-            weight_decay=_args.wd,
-            num_train_epochs=_args.epoch,
-            predict_with_generate=True,
-            generation_max_length=_args.target_len,
-            load_best_model_at_end=False,
-            report_to=["none"],
-        )
+        output_dir=save_dir,
+        eval_strategy="no",
+        logging_strategy="epoch",
+        save_strategy="epoch",
+        save_total_limit=2,
+        learning_rate=_args.lr,
+        per_device_train_batch_size=_args.bs,
+        weight_decay=_args.wd,
+        num_train_epochs=_args.epoch,
+        predict_with_generate=True,
+        generation_max_length=_args.target_len,
+        load_best_model_at_end=False,
+        report_to=["none"],
+        disable_tqdm=True,
+        # ✅ Prevent exploding gradients during early multimodal training
+        max_grad_norm=1.0,
+        warmup_ratio=0.05,
+        fp16=_args.fp16,
+        gradient_accumulation_steps=_args.grad_accum,
+    )
+
+    # Post-processing for ROUGE evaluation (First-Stage produces rationales)
+    def postprocess_text(_preds, _labels):
+        _preds  = [pred.strip()  for pred  in _preds]
+        _labels = [label.strip() for label in _labels]
+        # Regex-based sentence splitting for Bangla (dari ।, ?, !)
+        _preds  = ["\n".join(s.strip() for s in re.split(r'[।?!]', pred)  if s.strip()) for pred  in _preds]
+        _labels = ["\n".join(s.strip() for s in re.split(r'[।?!]', label) if s.strip()) for label in _labels]
+        return _preds, _labels
+
+    def compute_metrics_rougel(eval_preds):
+        import evaluate
+        metric = evaluate.load("rouge")
+        preds, targets = eval_preds
+        if isinstance(preds, tuple):
+            preds = preds[0]
+        preds   = np.where(preds   != -100, preds,   tokenizer.pad_token_id)
+        targets = np.where(targets != -100, targets, tokenizer.pad_token_id)
+        decoded_preds   = tokenizer.batch_decode(preds,   skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        decoded_targets = tokenizer.batch_decode(targets, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_targets)
+        result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+        result = {k: round(v * 100, 4) for k, v in result.items()}
+        prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
+        result["gen_token_len"] = np.mean(prediction_lens)
+        return result
 
     train_set = OpenMedVQADataset(
         _tokenizer=tokenizer,
@@ -57,6 +97,8 @@ def train_loop(_args):
         args=config,
         train_dataset=train_set,
         data_collator=datacollator,
+        # ✅ Use ROUGE for First-Stage (generates rationales), None for answer-only stages
+        compute_metrics=compute_metrics_rougel if _args.rational else None,
     )
 
     # ✅ Auto-detect latest checkpoint and resume (no manual flag needed)
@@ -78,46 +120,23 @@ def train_loop(_args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--train_text_file_path', type=str, default='None')
-    parser.add_argument('--img_file_path', type=str, default='None')
-    parser.add_argument('--img_name_map', type=str, default='None')
-    parser.add_argument('--pretrained_model_path', type=str, default='google/mt5-base')
-    parser.add_argument('--output_dir', type=str, default='None')
-    parser.add_argument('--method', type=str, choices={"Explanation", "Reasoning", "First-Stage_Reasoning", "Second-Stage_Reasoning", "without_R"})
-    parser.add_argument('--source_len', type=int, default=512)
-    parser.add_argument('--target_len', type=int, default=256)
-    parser.add_argument('--lr', type=float, default=5e-5, help='Learning Rate')
-    parser.add_argument('--epoch', type=int, default=20)
-    parser.add_argument('--bs', type=int, default=4, help='Batch Size')
-    parser.add_argument('--wd', type=float, default=1e-2, help='Weight Decay')
-    parser.add_argument('--seed', type=int, default=42, help='Random Seed')
-    parser.add_argument('--dataset', type=str, choices=['rad', 'slake'])
-    parser.add_argument('--rational', action='store_true', help='Use ROUGE metric if rational is present')
+    parser.add_argument('--img_file_path',        type=str, default='None')
+    parser.add_argument('--img_name_map',         type=str, default='None')
+    parser.add_argument('--pretrained_model_path',type=str, default='google/mt5-base')
+    parser.add_argument('--output_dir',           type=str, default='None')
+    parser.add_argument('--method', type=str, choices=["Explanation", "Reasoning", "First-Stage_Reasoning", "Second-Stage_Reasoning", "without_R"])
+    parser.add_argument('--source_len', type=int,   default=512)
+    parser.add_argument('--target_len', type=int,   default=256)
+    parser.add_argument('--lr',         type=float, default=5e-4)
+    parser.add_argument('--epoch',      type=int,   default=20)
+    parser.add_argument('--bs',         type=int,   default=8)
+    parser.add_argument('--wd',         type=float, default=1e-2)
+    parser.add_argument('--seed',       type=int,   default=42)
+    parser.add_argument('--dataset',    type=str,   choices=['rad', 'slake', 'path'])
+    parser.add_argument('--fp16',       action='store_true', help='Use mixed precision (half memory usage)')
+    parser.add_argument('--grad_accum', type=int,   default=1, help='Gradient accumulation steps')
+    parser.add_argument('--rational',   action='store_true', help='Use ROUGE metric if rationale is present (First-Stage)')
     args = parser.parse_args()
     for arg, value in vars(args).items():
         print(f"{arg}: {value}")
     train_loop(args)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
