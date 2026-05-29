@@ -2,6 +2,7 @@ import torch
 import argparse
 import re
 import os
+import json
 import numpy as np
 
 # Force single GPU to prevent DataParallel StopIteration issues
@@ -11,6 +12,27 @@ if "CUDA_VISIBLE_DEVICES" not in os.environ:
 from model import T5ForMultimodalGeneration
 from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 from dataset import OpenMedVQADataset
+
+
+def run_signature(_args):
+    return {
+        "script": "open_end_train.py",
+        "dataset": _args.dataset,
+        "method": _args.method,
+        "train_file": os.path.basename(_args.train_text_file_path),
+        "pretrained_model_path": _args.pretrained_model_path,
+        "source_len": _args.source_len,
+        "target_len": _args.target_len,
+        "lr": _args.lr,
+        "bs": _args.bs,
+        "grad_accum": _args.grad_accum,
+        "seed": _args.seed,
+    }
+
+
+def signatures_match(current, saved):
+    return all(saved.get(key) == value for key, value in current.items())
+
 
 def train_loop(_args):
     torch.manual_seed(_args.seed)
@@ -39,7 +61,7 @@ def train_loop(_args):
         eval_strategy="no",
         logging_strategy="epoch",
         save_strategy="epoch",
-        save_total_limit=2,
+        save_total_limit=1,
         learning_rate=_args.lr,
         per_device_train_batch_size=_args.bs,
         weight_decay=_args.wd,
@@ -104,19 +126,40 @@ def train_loop(_args):
 
     # ✅ Auto-detect latest checkpoint and resume (no manual flag needed)
     latest_ckpt = None
+    signature_path = os.path.join(save_dir, "run_signature.json")
+    current_signature = run_signature(_args)
     if os.path.isdir(save_dir):
         checkpoints = [d for d in os.listdir(save_dir) if d.startswith("checkpoint-")]
         if checkpoints:
-            latest_ckpt = os.path.join(save_dir, sorted(checkpoints, key=lambda x: int(x.split("-")[1]))[-1])
-            print(f"[AUTO-RESUME] Found checkpoint: {latest_ckpt}")
+            can_resume = False
+            if os.path.exists(signature_path):
+                with open(signature_path, "r", encoding="utf-8") as f:
+                    saved_signature = json.load(f)
+                can_resume = signatures_match(current_signature, saved_signature)
+                if not can_resume:
+                    print("[AUTO-RESUME] Existing checkpoints do not match this command. Training from scratch.")
+            elif _args.resume_without_metadata:
+                can_resume = True
+                print("[AUTO-RESUME] No run signature found, but --resume_without_metadata was passed.")
+            else:
+                print("[AUTO-RESUME] Existing checkpoints have no run signature. Training from scratch to avoid using a stale checkpoint.")
+
+            if can_resume:
+                latest_ckpt = os.path.join(save_dir, sorted(checkpoints, key=lambda x: int(x.split("-")[1]))[-1])
+                print(f"[AUTO-RESUME] Found matching checkpoint: {latest_ckpt}")
         else:
             print("[AUTO-RESUME] No checkpoint found. Training from scratch.")
     else:
         print("[AUTO-RESUME] Save dir does not exist yet. Training from scratch.")
 
+    with open(signature_path, "w", encoding="utf-8") as f:
+        json.dump(current_signature, f, ensure_ascii=False, indent=2)
+
     trainer.train(resume_from_checkpoint=latest_ckpt)
     trainer.save_model(save_dir)
     tokenizer.save_pretrained(save_dir)
+    with open(signature_path, "w", encoding="utf-8") as f:
+        json.dump(current_signature, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
@@ -138,6 +181,7 @@ if __name__ == "__main__":
     parser.add_argument('--fp16',       action='store_true', help='Use mixed precision (half memory usage)')
     parser.add_argument('--grad_accum', type=int,   default=1, help='Gradient accumulation steps')
     parser.add_argument('--rational',   action='store_true', help='Use ROUGE metric if rationale is present (First-Stage)')
+    parser.add_argument('--resume_without_metadata', action='store_true', help='Resume old checkpoints created before run_signature.json existed')
     args = parser.parse_args()
     for arg, value in vars(args).items():
         print(f"{arg}: {value}")
