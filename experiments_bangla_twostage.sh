@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # Model: google/mt5-base
 # Dataset: R-RAD-Bengali
@@ -43,6 +43,7 @@ CUDA_VISIBLE_DEVICES=0 python closed_end_generate.py \
     --target_len 256 \
     --text_file_path $DATA_DIR/closed-end/trainset_bengali.json \
     --model_path bangla_closed_end_experiments/First-Stage_Reasoning \
+    --tokenizer_path google/mt5-base \
     --img_file_path $IMG_FEATURES \
     --img_name_map $NAME_MAP \
     --output_dir bangla_closed_end_experiments
@@ -55,6 +56,7 @@ CUDA_VISIBLE_DEVICES=0 python closed_end_generate.py \
     --target_len 256 \
     --text_file_path $DATA_DIR/closed-end/testset_bengali.json \
     --model_path bangla_closed_end_experiments/First-Stage_Reasoning \
+    --tokenizer_path google/mt5-base \
     --img_file_path $IMG_FEATURES \
     --img_name_map $NAME_MAP \
     --output_dir bangla_closed_end_experiments
@@ -83,6 +85,7 @@ CUDA_VISIBLE_DEVICES=0 python closed_end_generate.py \
     --target_len 32 \
     --text_file_path bangla_closed_end_experiments/First-Stage_Reasoning/test.json \
     --model_path bangla_closed_end_experiments/Second-Stage_Reasoning \
+    --tokenizer_path google/mt5-base \
     --img_file_path $IMG_FEATURES \
     --img_name_map $NAME_MAP \
     --output_dir bangla_closed_end_experiments
@@ -116,6 +119,7 @@ CUDA_VISIBLE_DEVICES=0 python open_end_generate.py \
     --target_len 256 \
     --text_file_path $DATA_DIR/open-end/trainset_bengali.json \
     --model_path bangla_open_end_experiments/First-Stage_Reasoning \
+    --tokenizer_path google/mt5-base \
     --img_file_path $IMG_FEATURES \
     --img_name_map $NAME_MAP \
     --output_dir bangla_open_end_experiments
@@ -128,6 +132,7 @@ CUDA_VISIBLE_DEVICES=0 python open_end_generate.py \
     --target_len 256 \
     --text_file_path $DATA_DIR/open-end/testset_bengali.json \
     --model_path bangla_open_end_experiments/First-Stage_Reasoning \
+    --tokenizer_path google/mt5-base \
     --img_file_path $IMG_FEATURES \
     --img_name_map $NAME_MAP \
     --output_dir bangla_open_end_experiments
@@ -156,6 +161,8 @@ CUDA_VISIBLE_DEVICES=0 python open_end_generate.py \
     --target_len 32 \
     --text_file_path bangla_open_end_experiments/First-Stage_Reasoning/test.json \
     --model_path bangla_open_end_experiments/Second-Stage_Reasoning \
+    --tokenizer_path google/mt5-base \
     --img_file_path $IMG_FEATURES \
     --img_name_map $NAME_MAP \
     --output_dir bangla_open_end_experiments
+

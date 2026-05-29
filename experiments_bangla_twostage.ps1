@@ -1,4 +1,4 @@
-# PowerShell script to run the Two-Stage Reasoning pipeline for Bengali MedVQA dataset
+﻿# PowerShell script to run the Two-Stage Reasoning pipeline for Bengali MedVQA dataset
 
 # Set paths
 $DATA_DIR = "../Medthink-Dataset/R-RAD-Bengali"
@@ -42,6 +42,7 @@ python closed_end_generate.py `
     --target_len 256 `
     --text_file_path "$DATA_DIR/closed-end/trainset_bengali.json" `
     --model_path bangla_closed_end_experiments/First-Stage_Reasoning `
+    --tokenizer_path google/mt5-base `
     --img_file_path $IMG_FEATURES `
     --img_name_map $NAME_MAP `
     --output_dir bangla_closed_end_experiments
@@ -54,6 +55,7 @@ python closed_end_generate.py `
     --target_len 256 `
     --text_file_path "$DATA_DIR/closed-end/testset_bengali.json" `
     --model_path bangla_closed_end_experiments/First-Stage_Reasoning `
+    --tokenizer_path google/mt5-base `
     --img_file_path $IMG_FEATURES `
     --img_name_map $NAME_MAP `
     --output_dir bangla_closed_end_experiments
@@ -82,6 +84,7 @@ python closed_end_generate.py `
     --target_len 32 `
     --text_file_path bangla_closed_end_experiments/First-Stage_Reasoning/test.json `
     --model_path bangla_closed_end_experiments/Second-Stage_Reasoning `
+    --tokenizer_path google/mt5-base `
     --img_file_path $IMG_FEATURES `
     --img_name_map $NAME_MAP `
     --output_dir bangla_closed_end_experiments
@@ -115,6 +118,7 @@ python open_end_generate.py `
     --target_len 256 `
     --text_file_path "$DATA_DIR/open-end/trainset_bengali.json" `
     --model_path bangla_open_end_experiments/First-Stage_Reasoning `
+    --tokenizer_path google/mt5-base `
     --img_file_path $IMG_FEATURES `
     --img_name_map $NAME_MAP `
     --output_dir bangla_open_end_experiments
@@ -127,6 +131,7 @@ python open_end_generate.py `
     --target_len 256 `
     --text_file_path "$DATA_DIR/open-end/testset_bengali.json" `
     --model_path bangla_open_end_experiments/First-Stage_Reasoning `
+    --tokenizer_path google/mt5-base `
     --img_file_path $IMG_FEATURES `
     --img_name_map $NAME_MAP `
     --output_dir bangla_open_end_experiments
@@ -155,6 +160,8 @@ python open_end_generate.py `
     --target_len 32 `
     --text_file_path bangla_open_end_experiments/First-Stage_Reasoning/test.json `
     --model_path bangla_open_end_experiments/Second-Stage_Reasoning `
+    --tokenizer_path google/mt5-base `
     --img_file_path $IMG_FEATURES `
     --img_name_map $NAME_MAP `
     --output_dir bangla_open_end_experiments
+

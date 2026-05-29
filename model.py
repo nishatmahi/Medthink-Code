@@ -9,6 +9,7 @@ Architecture (MedThink paper):
 """
 
 import math
+import os
 from typing import Optional, Tuple, Union
 
 import torch
@@ -60,11 +61,32 @@ class T5ForMultimodalGeneration(T5ForConditionalGeneration):
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, patch_size=(100, 256), **kwargs):
         kwargs["patch_size"] = patch_size
+        should_init_multimodal = not cls._has_saved_multimodal_weights(pretrained_model_name_or_path)
         model = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
-        # Initialize fusion layers AFTER pretrained weights are loaded
-        # so they can never be overwritten by T5's _init_weights()
-        model.init_multimodal_weights()
+        if should_init_multimodal:
+            # Base T5 checkpoints do not contain these layers, so initialize them once.
+            model.init_multimodal_weights()
         return model
+
+    @staticmethod
+    def _has_saved_multimodal_weights(model_path):
+        if not isinstance(model_path, str) or not os.path.isdir(model_path):
+            return False
+
+        index_files = [
+            "pytorch_model.bin.index.json",
+            "model.safetensors.index.json",
+        ]
+        for index_file in index_files:
+            index_path = os.path.join(model_path, index_file)
+            if os.path.exists(index_path):
+                return True
+
+        weight_files = [
+            "pytorch_model.bin",
+            "model.safetensors",
+        ]
+        return any(os.path.exists(os.path.join(model_path, name)) for name in weight_files)
 
     def init_multimodal_weights(self):
         """Initialize only the new multimodal fusion layers."""

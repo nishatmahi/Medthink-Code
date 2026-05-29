@@ -33,6 +33,7 @@ def train_loop(_args):
 
     save_dir = os.path.join(_args.output_dir, _args.method)
     os.makedirs(save_dir, exist_ok=True)
+    tokenizer.save_pretrained(save_dir)
 
     config = Seq2SeqTrainingArguments(
         output_dir=save_dir,
@@ -140,6 +141,7 @@ def train_loop(_args):
 
     trainer.train(resume_from_checkpoint=latest_ckpt)
     trainer.save_model(save_dir)
+    tokenizer.save_pretrained(save_dir)
 
 
 if __name__ == "__main__":

@@ -121,6 +121,7 @@ python closed_end_generate.py \
   --img_file_path  "$RAD_IMG_FEATURES" \
   --img_name_map   "$RAD_NAME_MAP" \
   --model_path     "$RAD_CKPT_DIR/closed-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$RAD_CKPT_DIR/closed-end" \
   --dataset        rad \
   --method         First-Stage_Reasoning \
@@ -133,6 +134,7 @@ python closed_end_generate.py \
   --img_file_path  "$RAD_IMG_FEATURES" \
   --img_name_map   "$RAD_NAME_MAP" \
   --model_path     "$RAD_CKPT_DIR/closed-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$RAD_CKPT_DIR/closed-end" \
   --dataset        rad \
   --method         First-Stage_Reasoning \
@@ -159,6 +161,7 @@ python closed_end_generate.py \
   --img_file_path  "$RAD_IMG_FEATURES" \
   --img_name_map   "$RAD_NAME_MAP" \
   --model_path     "$RAD_CKPT_DIR/closed-end/Second-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$RAD_CKPT_DIR/closed-end" \
   --dataset        rad \
   --method         Second-Stage_Reasoning \
@@ -234,6 +237,7 @@ python open_end_generate.py \
   --img_file_path  "$RAD_IMG_FEATURES" \
   --img_name_map   "$RAD_NAME_MAP" \
   --model_path     "$RAD_CKPT_DIR/open-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$RAD_CKPT_DIR/open-end" \
   --dataset        rad \
   --method         First-Stage_Reasoning \
@@ -246,6 +250,7 @@ python open_end_generate.py \
   --img_file_path  "$RAD_IMG_FEATURES" \
   --img_name_map   "$RAD_NAME_MAP" \
   --model_path     "$RAD_CKPT_DIR/open-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$RAD_CKPT_DIR/open-end" \
   --dataset        rad \
   --method         First-Stage_Reasoning \
@@ -272,6 +277,7 @@ python open_end_generate.py \
   --img_file_path  "$RAD_IMG_FEATURES" \
   --img_name_map   "$RAD_NAME_MAP" \
   --model_path     "$RAD_CKPT_DIR/open-end/Second-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$RAD_CKPT_DIR/open-end" \
   --dataset        rad \
   --method         Second-Stage_Reasoning \
@@ -346,6 +352,7 @@ python closed_end_generate.py \
   --img_file_path  "$SLAKE_IMG_FEATURES" \
   --img_name_map   "$SLAKE_NAME_MAP" \
   --model_path     "$SLAKE_CKPT_DIR/closed-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$SLAKE_CKPT_DIR/closed-end" \
   --dataset        slake \
   --method         First-Stage_Reasoning \
@@ -356,6 +363,7 @@ python closed_end_generate.py \
   --img_file_path  "$SLAKE_IMG_FEATURES" \
   --img_name_map   "$SLAKE_NAME_MAP" \
   --model_path     "$SLAKE_CKPT_DIR/closed-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$SLAKE_CKPT_DIR/closed-end" \
   --dataset        slake \
   --method         First-Stage_Reasoning \
@@ -379,6 +387,7 @@ python closed_end_generate.py \
   --img_file_path  "$SLAKE_IMG_FEATURES" \
   --img_name_map   "$SLAKE_NAME_MAP" \
   --model_path     "$SLAKE_CKPT_DIR/closed-end/Second-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$SLAKE_CKPT_DIR/closed-end" \
   --dataset        slake \
   --method         Second-Stage_Reasoning \
@@ -448,6 +457,7 @@ python open_end_generate.py \
   --img_file_path  "$SLAKE_IMG_FEATURES" \
   --img_name_map   "$SLAKE_NAME_MAP" \
   --model_path     "$SLAKE_CKPT_DIR/open-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$SLAKE_CKPT_DIR/open-end" \
   --dataset        slake \
   --method         First-Stage_Reasoning \
@@ -458,6 +468,7 @@ python open_end_generate.py \
   --img_file_path  "$SLAKE_IMG_FEATURES" \
   --img_name_map   "$SLAKE_NAME_MAP" \
   --model_path     "$SLAKE_CKPT_DIR/open-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$SLAKE_CKPT_DIR/open-end" \
   --dataset        slake \
   --method         First-Stage_Reasoning \
@@ -481,6 +492,7 @@ python open_end_generate.py \
   --img_file_path  "$SLAKE_IMG_FEATURES" \
   --img_name_map   "$SLAKE_NAME_MAP" \
   --model_path     "$SLAKE_CKPT_DIR/open-end/Second-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$SLAKE_CKPT_DIR/open-end" \
   --dataset        slake \
   --method         Second-Stage_Reasoning \
@@ -554,6 +566,7 @@ python closed_end_generate.py \
   --img_file_path  "$PATH_IMG_FEATURES" \
   --img_name_map   "$PATH_NAME_MAP" \
   --model_path     "$PATH_CKPT_DIR/closed-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$PATH_CKPT_DIR/closed-end" \
   --dataset        path \
   --method         First-Stage_Reasoning \
@@ -564,6 +577,7 @@ python closed_end_generate.py \
   --img_file_path  "$PATH_IMG_FEATURES" \
   --img_name_map   "$PATH_NAME_MAP" \
   --model_path     "$PATH_CKPT_DIR/closed-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$PATH_CKPT_DIR/closed-end" \
   --dataset        path \
   --method         First-Stage_Reasoning \
@@ -587,6 +601,7 @@ python closed_end_generate.py \
   --img_file_path  "$PATH_IMG_FEATURES" \
   --img_name_map   "$PATH_NAME_MAP" \
   --model_path     "$PATH_CKPT_DIR/closed-end/Second-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$PATH_CKPT_DIR/closed-end" \
   --dataset        path \
   --method         Second-Stage_Reasoning \
@@ -656,6 +671,7 @@ python open_end_generate.py \
   --img_file_path  "$PATH_IMG_FEATURES" \
   --img_name_map   "$PATH_NAME_MAP" \
   --model_path     "$PATH_CKPT_DIR/open-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$PATH_CKPT_DIR/open-end" \
   --dataset        path \
   --method         First-Stage_Reasoning \
@@ -666,6 +682,7 @@ python open_end_generate.py \
   --img_file_path  "$PATH_IMG_FEATURES" \
   --img_name_map   "$PATH_NAME_MAP" \
   --model_path     "$PATH_CKPT_DIR/open-end/First-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$PATH_CKPT_DIR/open-end" \
   --dataset        path \
   --method         First-Stage_Reasoning \
@@ -689,6 +706,7 @@ python open_end_generate.py \
   --img_file_path  "$PATH_IMG_FEATURES" \
   --img_name_map   "$PATH_NAME_MAP" \
   --model_path     "$PATH_CKPT_DIR/open-end/Second-Stage_Reasoning" \
+  --tokenizer_path "$BASE_MODEL" \
   --output_dir     "$PATH_CKPT_DIR/open-end" \
   --dataset        path \
   --method         Second-Stage_Reasoning \

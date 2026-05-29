@@ -12,14 +12,60 @@ from dataset import ClosedMedVQADataset
 from model import T5ForMultimodalGeneration
 from transformers import AutoTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 
+
+def resolve_model_path(model_path):
+    if os.path.isdir(model_path) and os.path.exists(os.path.join(model_path, "config.json")):
+        return model_path
+
+    if os.path.isdir(model_path):
+        checkpoints = [
+            d for d in os.listdir(model_path)
+            if d.startswith("checkpoint-") and os.path.isdir(os.path.join(model_path, d))
+        ]
+        if checkpoints:
+            latest = sorted(checkpoints, key=lambda x: int(x.split("-")[-1]))[-1]
+            resolved = os.path.join(model_path, latest)
+            print(f"[AUTO-CHECKPOINT] Loading latest checkpoint: {resolved}")
+            return resolved
+
+    return model_path
+
+
+def load_tokenizer(model_path, tokenizer_path=None):
+    candidates = []
+    if tokenizer_path:
+        candidates.append(tokenizer_path)
+    candidates.append(model_path)
+    parent = os.path.dirname(model_path)
+    if parent:
+        candidates.append(parent)
+
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            return AutoTokenizer.from_pretrained(candidate)
+        except Exception:
+            continue
+
+    raise ValueError(
+        "Could not load tokenizer. Pass --tokenizer_path, for example "
+        "--tokenizer_path google/mt5-small."
+    )
+
+
 def eval_loop(_args):
     torch.manual_seed(_args.seed)
     np.random.seed(_args.seed)
     torch.backends.cudnn.deterministic = True
 
+    model_path = resolve_model_path(_args.model_path)
+
     # ✅ Fixed: patch_size as explicit kwarg, not positional arg
     model = T5ForMultimodalGeneration.from_pretrained(
-        _args.model_path,
+        model_path,
         patch_size=(100, 256),
         torch_dtype=torch.float32,
         ignore_mismatched_sizes=True,
@@ -27,7 +73,7 @@ def eval_loop(_args):
     # ✅ Silence tied-weights warning
     model.config.tie_word_embeddings = False
 
-    tokenizer = AutoTokenizer.from_pretrained(_args.model_path)
+    tokenizer = load_tokenizer(model_path, _args.tokenizer_path)
     datacollator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, label_pad_token_id=-100)
 
     config = Seq2SeqTrainingArguments(
@@ -59,7 +105,7 @@ def eval_loop(_args):
         _dataset=_args.dataset
     )
 
-    predictions = trainer.predict(test_dataset=data_set, max_length=256)
+    predictions = trainer.predict(test_dataset=data_set, max_length=_args.target_len)
     preds, targets = predictions.predictions, predictions.label_ids
 
     preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
@@ -85,12 +131,16 @@ def eval_loop(_args):
             _args.output_dir, _args.method,
             "test.json" if "test" in _args.text_file_path else "train.json"
         )
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         with open(save_path, "w", encoding="utf-8") as f:
             json.dump(raw_data, f, ensure_ascii=False, indent=4)
+        print(f"[First-Stage] Saved rationale-injected data to: {save_path}")
     else:
         save_path = os.path.join(_args.output_dir, _args.method, "test_response.json")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         with open(save_path, "w", encoding="utf-8") as f:
             json.dump(questions_dict, f, ensure_ascii=False, indent=4)
+        print(f"[{_args.method}] Saved predictions to: {save_path}")
 
 
 if __name__ == "__main__":
@@ -99,6 +149,7 @@ if __name__ == "__main__":
     parser.add_argument('--img_file_path',  type=str, default='None')
     parser.add_argument('--img_name_map',   type=str, default='None')
     parser.add_argument('--model_path',     type=str, default='None')
+    parser.add_argument('--tokenizer_path', type=str, default=None)
     parser.add_argument('--output_dir',     type=str, default='None')
     parser.add_argument('--source_len',     type=int, default=512)
     parser.add_argument('--target_len',     type=int, default=256)
