@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 import torch
 import json
 import numpy as np
@@ -144,6 +145,7 @@ def eval_loop(_args):
 
 
 if __name__ == "__main__":
+    sys.argv = [arg for arg in sys.argv if arg.strip()]
     parser = argparse.ArgumentParser()
     parser.add_argument('--text_file_path', type=str, default='None')
     parser.add_argument('--img_file_path',  type=str, default='None')

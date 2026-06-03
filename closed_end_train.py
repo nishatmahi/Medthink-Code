@@ -181,8 +181,6 @@ def train_loop(_args):
         json.dump(current_signature, f, ensure_ascii=False, indent=2)
 
     trainer.train(resume_from_checkpoint=latest_ckpt)
-    trainer.save_model(save_dir)
-    tokenizer.save_pretrained(save_dir)
     with open(signature_path, "w", encoding="utf-8") as f:
         json.dump(current_signature, f, ensure_ascii=False, indent=2)
 
