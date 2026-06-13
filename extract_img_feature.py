@@ -83,19 +83,30 @@ if __name__ == "__main__":
                 vision_features.append(feature.detach().cpu())
                 cnt += 1
 
-    # ── PathVQA: flat directory of train_*.jpg / test_*.jpg / val_*.jpg ───────
-    # ✅ New: same logic as RAD — strip .jpg to get the image key
+    # ── PathVQA: images in subdirectories (Train_images, Val_images, Test_images)
+    # or flat .jpg files — handles both layouts
     elif args["dataset"] == "path":
-        images_path = sorted(os.listdir(images_dir))
-        print(f"There are {len(images_path)} entries in {images_dir}.")
-        for image_path in images_path:
-            if image_path.lower().endswith(".jpg"):
-                full_path = os.path.join(images_dir, image_path)
-                feature   = extract_features(model, transform, full_path, img_type, device)
-                image_id  = image_path[:-4]            # e.g. "train_0422"
-                name_map[image_id] = str(cnt)
-                vision_features.append(feature.detach().cpu())
-                cnt += 1
+        all_jpg_files = []
+        entries = sorted(os.listdir(images_dir))
+        for entry in entries:
+            entry_path = os.path.join(images_dir, entry)
+            if os.path.isdir(entry_path):
+                # Walk into subdirectory and collect .jpg files
+                for fname in sorted(os.listdir(entry_path)):
+                    if fname.lower().endswith(".jpg"):
+                        all_jpg_files.append(os.path.join(entry_path, fname))
+            elif entry.lower().endswith(".jpg"):
+                # Flat layout (fallback)
+                all_jpg_files.append(entry_path)
+
+        print(f"Found {len(all_jpg_files)} .jpg images in {images_dir}.")
+        for full_path in all_jpg_files:
+            fname     = os.path.basename(full_path)
+            feature   = extract_features(model, transform, full_path, img_type, device)
+            image_id  = fname[:-4]                     # e.g. "train_0422"
+            name_map[image_id] = str(cnt)
+            vision_features.append(feature.detach().cpu())
+            cnt += 1
 
     if cnt == 0:
         raise RuntimeError(
